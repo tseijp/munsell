@@ -86,7 +86,6 @@ function createStore(instances: Instances) {
   const move = (e: MouseEvent) => {
     const top = csspx(e.clientY);
     const left = csspx(e.clientX);
-    console.log(top, left)
     Object.assign(pointer.style, { top, left });
   };
 
