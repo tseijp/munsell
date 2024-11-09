@@ -43,7 +43,8 @@ export default function interpolate(i = 0, j = 0, k = 0) {
       mul(a1 * b0 * c1, Munsell[i1][j0][k1][t]) +
       mul(a0 * b1 * c1, Munsell[i0][j1][k1][t]) +
       mul(a1 * b1 * c1, Munsell[i1][j1][k1][t]);
-    ans[t] = clamp(ans[t]);
+    // @TODO FIX
+    if (ans[t] !== clamp(ans[t])) ans[t] = NaN;
   }
   return ans as [r: number, g: number, b: number];
 }
