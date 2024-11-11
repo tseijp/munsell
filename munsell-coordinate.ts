@@ -9,6 +9,6 @@ export default function coordinate(i = 0, j = 0, k = 0) {
   return {
     pos: [x, y, z] as Vec3,
     rot: [0, -ry, 0] as Vec3,
-    scale: [1, 1, 0.1] as Vec3,
+    scale: [1, 1, 0.4 - j * 0.03] as Vec3,
   };
 }

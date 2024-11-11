@@ -35,6 +35,70 @@ const get = () => ijk;
 
 const useIJK = () => useSyncExternalStore(sub, get, get);
 
+function cssrgb(color: number[]) {
+  const [r, g, b] = color.map((c) => (c * 255) << 0);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function csspx(x: number) {
+  return `${x}px`;
+}
+
+interface Stop {
+  stopPropagation: Function;
+}
+
+function createPointer() {
+  let el: HTMLDivElement;
+  let isEnter = false;
+
+  const enter = (color: number[]) => {
+    return <E extends Stop>(e: E) => {
+      e.stopPropagation();
+      isEnter = true;
+      const background = cssrgb(color);
+      el.textContent = background;
+      Object.assign(el.style, { display: "flex", background });
+    };
+  };
+
+  const leave = () => {
+    el.style.display = "none";
+  };
+
+  const move = (e: MouseEvent) => {
+    const top = csspx(e.clientY);
+    const left = csspx(e.clientX);
+    Object.assign(el.style, { top, left });
+  };
+
+  const mount = () => {
+    el = document.createElement("div");
+    document.body.appendChild(el);
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseleave", leave);
+    Object.assign(el.style, {
+      display: "none",
+      position: "fixed",
+      text: "center",
+      fontSize: "10px",
+      alignItems: "center",
+      width: "75px",
+      height: "75px",
+      borderRadius: "9999px",
+      border: "2px solid #000",
+    });
+  };
+
+  const clean = () => {
+    el.remove();
+  };
+
+  return { mount, clean, enter, leave };
+}
+
+const pointer = createPointer();
+
 function createInstances() {
   const ret = [];
   for (let i = 0; i < I; i++) {
@@ -54,31 +118,6 @@ type Instances = ReturnType<typeof createInstances>;
 
 type Instance = Instances[number];
 
-function createPointer() {
-  const pointer = document.createElement("div");
-  Object.assign(pointer.style, {
-    display: "none",
-    position: "fixed",
-    text: "center",
-    fontSize: "10px",
-    alignItems: "center",
-    width: "75px",
-    height: "75px",
-    borderRadius: "9999px",
-    border: "2px solid #000",
-  });
-  return pointer;
-}
-
-function cssrgb(color: number[]) {
-  const [r, g, b] = color.map((c) => (c * 255) << 0);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function csspx(x: number) {
-  return `${x}px`;
-}
-
 function createStore(instances: Instances) {
   // dummy
   const col = new THREE.Color();
@@ -87,8 +126,6 @@ function createStore(instances: Instances) {
   const quat = new THREE.Quaternion();
   const scale = new THREE.Vector3();
 
-  // writabe
-  let pointer: HTMLDivElement;
   let mesh: THREE.InstancedMesh;
 
   const init = ({ coord, color }: Instance, index: number) => {
@@ -102,44 +139,24 @@ function createStore(instances: Instances) {
   };
 
   const enter = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
     const { color } = instances[e.instanceId!];
-    const background = cssrgb(color);
-    pointer.textContent = background;
-    Object.assign(pointer.style, { display: "flex", background });
-  };
-
-  const leave = () => {
-    pointer.style.display = "none";
-  };
-
-  const move = (e: MouseEvent) => {
-    const top = csspx(e.clientY);
-    const left = csspx(e.clientX);
-    Object.assign(pointer.style, { top, left });
+    pointer.enter(color);
   };
 
   const mount = () => {
-    pointer = createPointer();
-    document.body.appendChild(pointer);
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseleave", leave);
+    pointer.mount();
     instances.forEach(init);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   };
 
-  const clean = () => {
-    pointer.remove();
-  };
-
   const ref = (_mesh: THREE.InstancedMesh | null) => {
-    if (!_mesh) return clean();
+    if (!_mesh) return pointer.clean();
     mesh = _mesh;
     mount();
   };
 
-  return { ref, enter, leave };
+  return { ref, enter };
 }
 
 function Instances() {
@@ -152,7 +169,6 @@ function Instances() {
     <instancedMesh
       ref={store.ref}
       onPointerEnter={store.enter}
-      onPointerLeave={store.leave}
       args={[geometry, material, instances.length]}
     />
   );
@@ -169,15 +185,24 @@ function Ring() {
       const disable = isNaN(color[0]) || isNaN(color[1]) || isNaN(color[2]);
       if (disable) return null;
       return (
-        <mesh key={i} onClick={() => set({ i })}>
+        <mesh
+          key={i}
+          onClick={() => set({ i })}
+          onPointerEnter={pointer.enter(color)}
+        >
           <ringGeometry
-            args={[k - 0.5, k + 0.5, 30, 8, _I * (I - i - 1), _I - 0.01]}
+            args={[k - 0.5, k + 0.5, 30, 8, _I * (I - i - 1), _I * 0.9]}
           />
           <meshBasicMaterial color={color} />
         </mesh>
       );
     })
   );
+}
+
+function MoveZ(props: GroupProps) {
+  const ijk = useIJK();
+  return <group position-z={ijk.j - 1.5}  {...props} />;
 }
 
 const width = `calc(min(${(100 / J) << 0}vw, ${(100 / K) << 0}vh))`;
@@ -195,8 +220,17 @@ function Palette() {
       return (
         <div
           key={key}
+          onPointerEnter={pointer.enter(color)}
           style={
-            disable ? {} : { width, height, background, pointerEvents: "auto" }
+            disable
+              ? {}
+              : {
+                  width,
+                  height,
+                  background,
+                  pointerEvents: "auto",
+                  borderRadius: `calc(${width} * 0.1)`,
+                }
           }
           onClick={() => set({ j, k: K - k - 1 })}
         />
@@ -241,7 +275,9 @@ function App() {
               <Instances />
             </group>
             <group position-z={-J / 2}>
-              <Ring />
+              <MoveZ>
+                <Ring />
+              </MoveZ>
             </group>
           </RotateGroup>
         </PresentationControls>
