@@ -1,7 +1,8 @@
 import coordinate from "./munsell-coordinate";
 import interpolate from "./munsell-interpolate";
 import { Canvas, GroupProps, ThreeEvent, useFrame } from "@react-three/fiber";
-import { PresentationControls } from "@react-three/drei";
+import { gsap } from "gsap";
+import { useDrag } from "rege/react";
 import { useMemo, useRef, useSyncExternalStore } from "react";
 import * as THREE from "three";
 
@@ -173,6 +174,7 @@ function Instances() {
 }
 
 const PI = 3.14;
+const { round } = Math;
 const _I = (2 * PI) / I;
 
 function Ring() {
@@ -200,7 +202,7 @@ function Ring() {
 
 function MoveZ(props: GroupProps) {
   const ijk = useIJK();
-  return <group position-z={ijk.j - 1.5}  {...props} />;
+  return <group position-z={ijk.j - 1.5} {...props} />;
 }
 
 const width = `calc(min(${(100 / J) << 0}vw, ${(100 / K) << 0}vh))`;
@@ -245,11 +247,32 @@ function RotateGroup(props: GroupProps) {
   return <group ref={ref} {...props} />;
 }
 
+const weight = PI / 360 / 2;
+const step = PI / 2;
+const aspect = window.innerWidth / window.innerHeight;
+
 function App() {
-  const aspect = window.innerWidth / window.innerHeight;
+  const ref = useRef<THREE.Group>(null!);
+  const drag = useDrag(() => {
+    const group = ref.current;
+    if (!group) return;
+    const { offset, isDragEnd } = drag;
+    let [y, x] = offset;
+    x *= weight;
+    y *= weight;
+    if (isDragEnd) {
+      x = round(x / step) * step;
+      y = round(y / step) * step;
+      offset[0] = y / weight;
+      offset[1] = x / weight;
+    }
+    gsap.to(group.rotation, { x, y, ease: "expo.out" });
+  });
+
   return (
     <>
       <Canvas
+        ref={drag.ref as any}
         style={{ position: "fixed", top: 0, left: 0 }}
         linear
         flat
@@ -267,7 +290,7 @@ function App() {
         }}
       >
         <color attach="background" args={["#A1A1A1"]} />
-        <PresentationControls snap global polar={[-PI, PI]}>
+        <group ref={ref}>
           <RotateGroup>
             <group position-z={-J / 2 - 1} rotation-x={PI / 2}>
               <Instances />
@@ -278,7 +301,7 @@ function App() {
               </MoveZ>
             </group>
           </RotateGroup>
-        </PresentationControls>
+        </group>
       </Canvas>
       <div
         style={{
