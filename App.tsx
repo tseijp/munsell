@@ -106,7 +106,7 @@ function createInstances() {
         const color = interpolate(i, j, k);
         if (color.some(isNaN)) continue;
         const coord = coordinate(i, j, k);
-        ret.push({ coord, color });
+        ret.push({ coord, color, i, j, k });
       }
     }
   }
@@ -137,7 +137,14 @@ function createStore(instances: Instances) {
     mesh.setColorAt(index, col);
   };
 
+  const click = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const { i, j, k } = instances[e.instanceId!];
+    set({ i, j, k });
+  }
+
   const enter = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
     const { color } = instances[e.instanceId!];
     pointer.enter(color);
   };
@@ -155,7 +162,7 @@ function createStore(instances: Instances) {
     mount();
   };
 
-  return { ref, enter };
+  return { ref, click, enter };
 }
 
 function Instances() {
@@ -167,6 +174,7 @@ function Instances() {
   return (
     <instancedMesh
       ref={store.ref}
+      onPointerDown={store.click}
       onPointerEnter={store.enter}
       args={[geometry, material, instances.length]}
     />
@@ -193,7 +201,7 @@ function Ring() {
           <ringGeometry
             args={[k - 0.5, k + 0.5, 30, 8, _I * (I - i - 1), _I * 0.9]}
           />
-          <meshBasicMaterial color={color} />
+          <meshBasicMaterial color={color} side={THREE.DoubleSide} />
         </mesh>
       );
     })
@@ -205,7 +213,7 @@ function MoveZ(props: GroupProps) {
   return <group position-z={ijk.j - 1.5} {...props} />;
 }
 
-const width = `calc(min(${(100 / J) << 0}vw, ${(100 / K) << 0}vh))`;
+const width = `calc(min(${(80 / J) << 0}vw, ${(80 / K) << 0}vh))`;
 const height = width;
 
 function Palette() {
