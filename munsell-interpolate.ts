@@ -3,12 +3,7 @@
  */
 // Trilinearly interpolate.
 import Munsell from "./munsell-floats";
-
-function clamp(x = 0, a = 0, b = 1) {
-  if (x < a) return a;
-  if (b < x) return b;
-  return x;
-}
+import { clamp } from "./utils";
 
 function mul(factor = 0, maybe_number = 0) {
   if (factor == 0) return 0;

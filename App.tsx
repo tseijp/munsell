@@ -1,20 +1,23 @@
 import coordinate from "./munsell-coordinate";
 import interpolate from "./munsell-interpolate";
+import { range, rgb, px } from "./utils";
 import { Canvas, GroupProps, ThreeEvent, useFrame } from "@react-three/fiber";
 import { gsap } from "gsap";
 import { useDrag } from "rege/react";
-import { useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import * as THREE from "three";
-
-function range(n = 0) {
-  const ret = new Array(n);
-  for (; n--; ) ret[n] = n;
-  return ret;
-}
 
 const I = 40; // hue
 const J = 15; // value
 const K = 13; // 26; // chroma
+
+const HUE = ["R", "YR", "Y", "GY", "G", "BG", "B", "PB", "P", "RP"];
+const hue = (i = 0) => {
+  const index = (i / 4) << 0;
+  let ret = HUE[index];
+  const num = i / 4 - index + 0.25;
+  return `${num * 10}${ret}`;
+};
 
 let ijk = { i: 8, j: 11, k: 4 };
 
@@ -36,28 +39,22 @@ const get = () => ijk;
 
 const useIJK = () => useSyncExternalStore(sub, get, get);
 
-function cssrgb(color: number[]) {
-  const [r, g, b] = color.map((c) => (c * 255) << 0);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function csspx(x: number) {
-  return `${x}px`;
-}
-
 interface Stop {
   stopPropagation: Function;
 }
 
 function createPointer() {
+  let text: HTMLDivElement;
+  let box: HTMLDivElement;
   let el: HTMLDivElement;
 
   const enter = (color: number[]) => {
     return <E extends Stop>(e: E) => {
       e.stopPropagation();
-      const background = cssrgb(color);
-      el.textContent = background;
-      Object.assign(el.style, { display: "flex", background });
+      const background = rgb(color);
+      text.textContent = background;
+      box.style.background = background;
+      el.style.display = "flex";
     };
   };
 
@@ -66,37 +63,54 @@ function createPointer() {
   };
 
   const move = (e: MouseEvent) => {
-    const top = csspx(e.clientY);
-    const left = csspx(e.clientX);
+    const top = px(e.clientY + 8);
+    const left = px(e.clientX + 8);
     Object.assign(el.style, { top, left });
   };
 
-  const mount = () => {
-    el = document.createElement("div");
-    document.body.appendChild(el);
+  const ref = (_el: HTMLDivElement) => {
+    if (!_el) return;
+    el = _el;
+    box = _el.children[0] as HTMLDivElement;
+    text = _el.children[1] as HTMLDivElement;
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseleave", leave);
-    Object.assign(el.style, {
-      display: "none",
-      position: "fixed",
-      text: "center",
-      fontSize: "10px",
-      alignItems: "center",
-      width: "75px",
-      height: "75px",
-      borderRadius: "9999px",
-      border: "2px solid #000",
-    });
   };
 
-  const clean = () => {
-    el.remove();
-  };
-
-  return { mount, clean, enter, leave };
+  return { enter, leave, ref };
 }
 
 const pointer = createPointer();
+
+const Pointer = () => {
+  return (
+    <div
+      ref={pointer.ref}
+      style={{
+        display: "none",
+        position: "fixed",
+        gap: "0.5rem",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          width: "75px",
+          height: "75px",
+          borderRadius: width,
+          border: "2px solid #000",
+        }}
+      ></div>
+      <div
+        style={{
+          color: "black",
+          mixBlendMode: "difference",
+          filter: "invert(1)",
+        }}
+      ></div>
+    </div>
+  );
+};
 
 function createInstances() {
   const ret = [];
@@ -141,23 +155,22 @@ function createStore(instances: Instances) {
     e.stopPropagation();
     const { i, j, k } = instances[e.instanceId!];
     set({ i, j, k });
-  }
+  };
 
   const enter = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const { color } = instances[e.instanceId!];
-    pointer.enter(color);
+    pointer.enter(color)(e);
   };
 
   const mount = () => {
-    pointer.mount();
     instances.forEach(init);
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   };
 
   const ref = (_mesh: THREE.InstancedMesh | null) => {
-    if (!_mesh) return pointer.clean();
+    if (!_mesh) return;
     mesh = _mesh;
     mount();
   };
@@ -222,9 +235,10 @@ function Palette() {
     range(J).map((j) => {
       const k = K - _k - 1;
       const key = `${j}-${k}`;
+      const active = ijk.j === j && ijk.k === k;
       const color = interpolate(ijk.i, j, k);
       const disable = isNaN(color[0]) || isNaN(color[1]) || isNaN(color[2]);
-      const background = cssrgb(color);
+      const background = rgb(color);
       return (
         <div
           key={key}
@@ -238,20 +252,67 @@ function Palette() {
                   background,
                   pointerEvents: "auto",
                   borderRadius: `calc(${width} * 0.1)`,
+                  boxShadow: active
+                    ? `0 0 0 2px ${j < 7 ? "#fff" : "#000"}`
+                    : "",
                 }
           }
-          onClick={() => set({ j, k: K - k - 1 })}
+          onClick={() => set({ j, k })}
         />
       );
     })
   );
 }
 
+
+function HVC() {
+  const { i, j, k } = useIJK();
+  const color = useMemo(() => interpolate(i, j, k), [i, j, k]);
+
+  useEffect(() => {
+    gsap.to(document.body, { background: rgb(color), ease: "expo.out" });
+  }, [color]);
+
+  return (
+    <div
+      style={{
+        padding: "0.5rem",
+        borderRadius: "0.5rem",
+        backdropFilter: "blur(5px)",
+        backgroundColor: "rgba(0, 0, 0, 0.075)",
+        boxShadow: "rgba(0, 0, 0, 0.3) 2px 8px 8px",
+      }}
+    >
+      <div>Munsell Color System</div>
+      <div>
+        {hue(i)} {j - 4 < 0 ? 0 : j - 4}.0/{k * 2}.0
+      </div>
+    </div>
+  );
+}
+
+let isActive = false;
+
 function RotateGroup(props: GroupProps) {
   const ref = useRef<THREE.Group>(null!);
+
   useFrame(() => {
+    if (isActive) return;
     ref.current.rotation.z += 0.0005;
   });
+
+  useEffect(() => {
+    let timeoutId = 0;
+    const handleMove = () => {
+      isActive = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        isActive = false;
+      }, 1000);
+    };
+    window.addEventListener("mousemove", handleMove);
+  }, []);
+
   return <group ref={ref} {...props} />;
 }
 
@@ -297,7 +358,6 @@ function App() {
           far: 200,
         }}
       >
-        <color attach="background" args={["#A1A1A1"]} />
         <group ref={ref}>
           <RotateGroup>
             <group position-z={-J / 2 - 1} rotation-x={PI / 2}>
@@ -326,6 +386,21 @@ function App() {
       >
         <Palette />
       </div>
+      <div
+        style={{
+          position: "fixed",
+          top: "50px",
+          fontSize: "2rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          color: "black",
+          mixBlendMode: "difference",
+          filter: "invert(1)",
+        }}
+      >
+        <HVC />
+      </div>
+      <Pointer />
     </>
   );
 }
