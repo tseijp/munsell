@@ -50,12 +50,10 @@ interface Stop {
 
 function createPointer() {
   let el: HTMLDivElement;
-  let isEnter = false;
 
   const enter = (color: number[]) => {
     return <E extends Stop>(e: E) => {
       e.stopPropagation();
-      isEnter = true;
       const background = cssrgb(color);
       el.textContent = background;
       Object.assign(el.style, { display: "flex", background });
