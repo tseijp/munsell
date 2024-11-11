@@ -16,7 +16,7 @@ const I = 40; // hue
 const J = 15; // value
 const K = 13; // 26; // chroma
 
-let ijk = { i: 10, j: 11, k: 4 };
+let ijk = { i: 8, j: 11, k: 4 };
 
 const listeners = new Set<Function>();
 
