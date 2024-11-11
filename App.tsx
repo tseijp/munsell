@@ -19,7 +19,7 @@ const hue = (i = 0) => {
   return `${num * 10}${ret}`;
 };
 
-let ijk = { i: 8, j: 11, k: 4 };
+let ijk = { i: 9, j: 13, k: 4 };
 
 const listeners = new Set<Function>();
 
@@ -276,7 +276,7 @@ function HVC() {
   return (
     <div
       style={{
-        padding: "0.5rem",
+        padding: "0.5rem 1rem",
         borderRadius: "0.5rem",
         backdropFilter: "blur(5px)",
         backgroundColor: "rgba(0, 0, 0, 0.075)",
