@@ -202,19 +202,24 @@ function Ring() {
   const ijk = useIJK();
   return range(K).map((k) =>
     range(I).map((i) => {
+      const key = `${i}-${k}`;
       const color = interpolate(i, ijk.j, k);
+      const active = i === ijk.i && k === ijk.k;
       const disable = isNaN(color[0]) || isNaN(color[1]) || isNaN(color[2]);
-      if (disable) return null;
+      const args = [k - 0.5, k + 0.5, 0, 0, _I * (I - i - 1), _I * 0.9];
       return (
         <mesh
-          key={i}
-          onClick={() => set({ i })}
+          key={key}
+          onClick={() => set({ i, k })}
           onPointerEnter={pointer.enter(color)}
         >
-          <ringGeometry
-            args={[k - 0.5, k + 0.5, 30, 8, _I * (I - i - 1), _I * 0.9]}
+          <ringGeometry args={args as any} />
+          <meshBasicMaterial
+            visible={!disable}
+            wireframe={active}
+            color={active ? (ijk.j < 7 ? "#fff" : "#000") : color}
+            side={THREE.DoubleSide}
           />
-          <meshBasicMaterial color={color} side={THREE.DoubleSide} />
         </mesh>
       );
     })
@@ -263,7 +268,6 @@ function Palette() {
     })
   );
 }
-
 
 function HVC() {
   const { i, j, k } = useIJK();
