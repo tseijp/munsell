@@ -210,6 +210,7 @@ function Ring() {
       return (
         <mesh
           key={key}
+          position-z={active ? -0.015 : 0}
           onClick={() => set({ i, k })}
           onPointerEnter={pointer.enter(color)}
         >
